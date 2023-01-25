@@ -75,7 +75,7 @@ class Particle:
 class PSO:
     stepProfit, stepWeightInKg, groupMaxPosition, groupMaxApproach = [], [], [], -1
 
-    def __init__(self, function, initialValues, numberOfParticles, numberOfDimensions, numberOfIterations, printSteps = True):
+    def __init__(self, function, initialValues, numberOfObjects, numberOfDimensions, numberOfIterations, printSteps = True):
 
         global particleNumber
 
@@ -101,7 +101,7 @@ class PSO:
                 dimensions[j].update_position()
             totalProfit = 0
             totalWeightInKg = 0
-            for i in range(numberOfParticles):
+            for i in range(numberOfObjects):
                 totalProfit += self.groupMaxPosition[i] * profits[i]
                 totalWeightInKg += self.groupMaxPosition[i] * weightsKg[i]
             self.stepProfit.append(totalProfit)
@@ -160,6 +160,8 @@ def checkSolution(optimalSolution, algorithmSolution):
 
 # initialValues = [0, 0, ..., 0, 0]
 for i in range(8):
+    if i<6:
+        continue
     print("\n"+"PROBLEM #"+str(i+1))
     capacity_file_name="datasets\\p0"+str(i+1)+"_c.txt"
     weights_file_name="datasets\\p0"+str(i+1)+"_w.txt"
@@ -167,6 +169,6 @@ for i in range(8):
     solutions_file_name="datasets\\p0"+str(i+1)+"_s.txt"
     readVariablesFromFiles(capacity_file_name, weights_file_name, profits_file_name, solutions_file_name)
     resetInitialValues()
-    pso = PSO(fncMax, initialValues, numberOfParticles=len(weightsKg), numberOfDimensions=1000, numberOfIterations=100, printSteps=False)
+    pso = PSO(fncMax, initialValues, numberOfObjects=len(weightsKg), numberOfDimensions=1000, numberOfIterations=10000, printSteps=False)
     pso.PrintResults()
     checkSolution(solution, pso.groupMaxPosition)

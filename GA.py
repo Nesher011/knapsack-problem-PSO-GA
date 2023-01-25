@@ -2,6 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 
+# Apply swarm intelligence algorithm in knapsack problems
+# https://people.sc.fsu.edu/~jburkardt/datasets/knapsack_01/knapsack_01.html for the
+# following task: P01, P02, P06, P07, P08.
+
 def readVariablesFromFiles(capacityFileName, weightsFileName, profitsFileName, solutionFileName):
     global capacityKg, weightsKg, profits, solution
     with open(capacityFileName, "r") as file:
@@ -67,7 +71,7 @@ def fitness_function(weights, costs, weight_limit, chromosomes):
         fitness=actual_costs
     return fitness
 
-def genetic_algorithm(number_of_bits, number_of_population, number_of_generations):
+def genetic_algorithm(number_of_bits, number_of_population, number_of_generations):    
     population=list()
     for _ in range(number_of_population):
         candidate=np.random.randint(0,1, number_of_bits).tolist()
@@ -75,6 +79,7 @@ def genetic_algorithm(number_of_bits, number_of_population, number_of_generation
     
     best_candidate=population[0]
     best_solution=fitness_function(weightsKg,profits,capacityKg,candidate)
+    overall_scores_dict={}
     for generation in range(number_of_generations):
         scores=[fitness_function(weightsKg,profits,capacityKg,candidate) for candidate in population]
         for i in range(number_of_population):
@@ -83,25 +88,27 @@ def genetic_algorithm(number_of_bits, number_of_population, number_of_generation
                 best_solution=scores[i]
         parents=[tournament_selection(population, scores) for _ in range(number_of_population)]
         population=create_new_gen(number_of_population, parents)
-    return best_candidate, best_solution
+        overall_scores_dict[generation]=best_solution
+        if(best_candidate==solution):
+            return best_candidate, best_solution, overall_scores_dict
+    return best_candidate, best_solution, overall_scores_dict
 
 
 def checkSolution(optimalSolution, algorithmSolution):
     print(optimalSolution)
     print(algorithmSolution)
+    totalProfit=0
+    totalProfitOptimal=0
     for i in range(len(optimalSolution)):
-        if(optimalSolution[i]!=algorithmSolution[i]):
-            print('Solution is not optimal\n')
-            print(optimalSolution)
-            totalProfit = 0
-            totalWeightInKg = 0        
-        
-            for i in range(len(optimalSolution)):
-                totalProfit += optimalSolution[i] * profits[i]
-                totalWeightInKg += optimalSolution[i] * weightsKg[i]
-            print('Profit Generated in optimal:', totalProfit, '\nWeight in kg in optimal:', totalWeightInKg)
-            return
+        totalProfit+=algorithmSolution[i]*profits[i]
+        totalProfitOptimal+=optimalSolution[i]*profits[i]
+    
+    if(totalProfit!=totalProfitOptimal):
+        print('Solution is not optimal\n')
+        print('Profit Generated in optimal:', totalProfitOptimal)
+        return totalProfit
     print("Solution is optimal")
+    return totalProfit
 
 def resetInitialValues():
     global initialValues
@@ -114,8 +121,8 @@ weightsKg=[]
 profits=[]
 solution=[]
 
-number_of_population=100
-number_of_generations=1000
+number_of_population=40
+number_of_generations=50000
 rate_of_crossover=0.9
 
 for i in range(8):
@@ -129,6 +136,17 @@ for i in range(8):
     number_of_bits=len(profits)
     rate_of_mutation=1/(number_of_bits)
     resetInitialValues()
-    best_candidate,best_solution=genetic_algorithm(number_of_bits,number_of_population,number_of_generations)
-    checkSolution(solution, best_candidate)
+    best_candidate,best_solution, overall_scores_dict=genetic_algorithm(number_of_bits,number_of_population,number_of_generations)
+    attempts=list(overall_scores_dict.keys())
+    values=list(overall_scores_dict.values())
+    optimal_profit=checkSolution(solution, best_candidate)
+    plt.figure()
+    plt.plot(attempts,values)
+    plt.axhline(y=optimal_profit, color='r')
+    plt.title('Problem '+str(i+1)+' Solution')
+    plt.xlabel("Generation")
+    plt.ylabel("Profit")
+    plt.ticklabel_format(style='plain')
+    plt.savefig('Problem_'+str(i+1)+'_Solution.png')
+    
     print("Overall best candidate: {},with score of: {}".format(best_candidate,best_solution))
