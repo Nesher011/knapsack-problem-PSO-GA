@@ -1,30 +1,23 @@
 import random
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Apply swarm intelligence algorithm in knapsack problems
 # https://people.sc.fsu.edu/~jburkardt/datasets/knapsack_01/knapsack_01.html for the
 # following task: P01, P02, P06, P07, P08.
 
 def fncMax(particle):
-    value = fncParticleProfit(particle)
-    return value + fncParticleKilogram(particle, value)
-
-def fncParticleProfit(particle):
-    total = 0
+    actual_weight=0
+    actual_costs=0
     for i in range(len(particle)):
-        total += particle[i] * profits[i]
-    return total
-
-def fncParticleKilogram(particle, resettingElement):
-    total = 0
-    for i in range(len(particle)):
-        total += particle[i] * weightsKg[i]
-    if total <= capacityKg:
-        if total <= resettingElement:
-            return resettingElement - total
-        else:
-            return 0
+        actual_weight=actual_weight+np.sum(weightsKg[i]*particle[i])
+    if actual_weight>capacityKg:
+        fitness=0
     else:
-        return -resettingElement
+        for i in range(len(particle)):
+            actual_costs=actual_costs+np.sum(profits[i]*particle[i])
+        fitness=actual_costs
+    return fitness
 
 class Particle:
     def __init__(self, initialValues):
@@ -47,9 +40,9 @@ class Particle:
 
     # Update particle velocity
     def update_speed(self, group_max_position):
-        Inertia = 0.99    # The coefficient of the particle's desire to maintain its previous velocity.
-        Individuality = 1.99   # The coefficient of willingness to protect one's own best.
-        Sociality = 1.99   # The coefficient of willingness to take the best value of the herd.
+        Inertia = 0.9    # The coefficient of the particle's desire to maintain its previous velocity.
+        Individuality = 2   # The coefficient of willingness to protect one's own best.
+        Sociality = 2  # The coefficient of willingness to take the best value of the herd.
         for i in range(particleNumber):
             r1 = random.random()
             r2 = random.random()
@@ -59,7 +52,7 @@ class Particle:
 
     # Calculating new positions according to the newly updated particle velocity
     def update_position(self):
-        for i in range(particleNumber):  
+        for i in range(particleNumber):              
             if self.speed[i] < -1:
                 self.speed[i] = -1
             elif self.speed[i] > 1:
@@ -73,30 +66,35 @@ class Particle:
                 self.position[i] = round(self.position[i])
 
 class PSO:
-    stepProfit, stepWeightInKg, groupMaxPosition, groupMaxApproach = [], [], [], -1
+    stepProfit = []
+    stepWeightInKg = []
+    groupMaxPosition = []
+    groupMaxApproach = -1
+  
+    def __init__(self, function, initialValues, numberOfObjects, numberOfParticles, numberOfIterations):
 
-    def __init__(self, function, initialValues, numberOfObjects, numberOfDimensions, numberOfIterations, printSteps = True):
-
-        global particleNumber
+        global particleNumber, optimal_profit
 
         particleNumber = len(initialValues)
         self.groupMaxApproach = -1  # The best approach for the group
         self.groupMaxPosition = []  # Best position for the group
         dimensions = []
-        for i in range(numberOfDimensions):
+        self.stepProfit=[]
+        self.stepWeightInKg=[]
+        for i in range(numberOfParticles):
             dimensions.append(Particle(initialValues))
         counter = 0
         while counter < numberOfIterations:
             counter += 1
             # Calculating the fitness of the swarm particles to the function.
-            for j in range(numberOfDimensions):
+            for j in range(numberOfParticles):
                 dimensions[j].calculate_fitness(function)
                 # Checking that the current particle is the global best and making the necessary updates
                 if dimensions[j].approach > self.groupMaxApproach or self.groupMaxApproach == -1:
                     self.groupMaxPosition = list(dimensions[j].position)
                     self.groupMaxApproach = float(dimensions[j].approach)
             # Updating speed and positions in the swarm
-            for j in range(numberOfDimensions):
+            for j in range(numberOfParticles):
                 dimensions[j].update_speed(self.groupMaxPosition)
                 dimensions[j].update_position()
             totalProfit = 0
@@ -104,32 +102,40 @@ class PSO:
             for i in range(numberOfObjects):
                 totalProfit += self.groupMaxPosition[i] * profits[i]
                 totalWeightInKg += self.groupMaxPosition[i] * weightsKg[i]
-            self.stepProfit.append(totalProfit)
-            self.stepWeightInKg.append(totalWeightInKg)
-            if printSteps:
-                print(self.groupMaxPosition)
+            print(totalWeightInKg, capacityKg) 
+            print(totalProfit, optimal_profit)
+            if totalWeightInKg<=capacityKg:               
+                self.stepProfit.append(totalProfit)
+                self.stepWeightInKg.append(totalWeightInKg)
+            elif counter != 1:
+                self.stepProfit.append(self.stepProfit[counter-1])
+                self.stepWeightInKg.append(self.stepWeightInKg[counter-1])
+            else:
+                self.stepProfit.append(0)
+                self.stepWeightInKg.append(0)
+            if totalProfit==optimal_profit and totalWeightInKg<=capacityKg:
+                break
 
     # Printing the results...
-    def PrintResults(self):
-        print('\nRESULTS:\n')
+    def CalculateResults(self):
         totalProfit = 0
-        totalWeightInKg = 0        
-        print(self.groupMaxPosition)
+        totalWeightInKg = 0 
         for i in range(len(self.groupMaxPosition)):
             totalProfit += self.groupMaxPosition[i] * profits[i]
             totalWeightInKg += self.groupMaxPosition[i] * weightsKg[i]
-        print('\nProfit Generated:', totalProfit, '\nWeight in kg:', totalWeightInKg)
+        return totalProfit, totalWeightInKg
 
 capacityKg=0
 weightsKg=[]
 profits=[]
 solution=[]
+optimal_profit=0
 
 def resetInitialValues():
     global initialValues
     initialValues=[]
     for i in range(len(weightsKg)):
-        initialValues.append(0)
+        initialValues.append(random.randint(0,1))
 
 def readVariablesFromFiles(capacityFileName, weightsFileName, profitsFileName, solutionFileName):
     global capacityKg, weightsKg, profits, solution
@@ -152,23 +158,63 @@ def readVariablesFromFiles(capacityFileName, weightsFileName, profitsFileName, s
             solution.append(int(line))
 
 def checkSolution(optimalSolution, algorithmSolution):
+    print(optimalSolution)
+    print(algorithmSolution)
+    totalProfit=0
+    totalProfitOptimal=0
     for i in range(len(optimalSolution)):
-        if(optimalSolution[i]!=algorithmSolution[i]):
-            print("Solution is not optimal")
-            return
+        totalProfit+=algorithmSolution[i]*profits[i]
+        totalProfitOptimal+=optimalSolution[i]*profits[i]
+    
+    if(totalProfit!=totalProfitOptimal):
+        print('Solution is not optimal\n')
+        print('Profit Generated in optimal:', totalProfitOptimal)
+        return totalProfit
     print("Solution is optimal")
+    return totalProfit
 
-# initialValues = [0, 0, ..., 0, 0]
+def calculateProfit(solution):
+    totalProfit=0    
+    for i in range(len(solution)):
+        totalProfit+=solution[i]*profits[i]
+    return totalProfit
+
 for i in range(8):
-    if i<6:
+    if i<0 or i>5:
         continue
     print("\n"+"PROBLEM #"+str(i+1))
     capacity_file_name="datasets\\p0"+str(i+1)+"_c.txt"
     weights_file_name="datasets\\p0"+str(i+1)+"_w.txt"
     profits_file_name="datasets\\p0"+str(i+1)+"_p.txt"
-    solutions_file_name="datasets\\p0"+str(i+1)+"_s.txt"
+    solutions_file_name="datasets\\p0"+str(i+1)+"_s.txt"    
     readVariablesFromFiles(capacity_file_name, weights_file_name, profits_file_name, solutions_file_name)
+    optimal_profit=calculateProfit(solution)
     resetInitialValues()
-    pso = PSO(fncMax, initialValues, numberOfObjects=len(weightsKg), numberOfDimensions=1000, numberOfIterations=10000, printSteps=False)
-    pso.PrintResults()
-    checkSolution(solution, pso.groupMaxPosition)
+    pso = PSO(fncMax, initialValues, numberOfObjects=len(weightsKg), numberOfParticles=500, numberOfIterations=10)
+    bestProfit, bestWeight= pso.CalculateResults()
+    best_solution=pso.groupMaxPosition
+    checkSolution(solution, best_solution)
+
+    print(pso.stepProfit)
+    print(pso.stepWeightInKg)
+
+    plt.figure()
+    plt.plot(pso.stepProfit)
+    plt.axhline(y=optimal_profit, color='r')
+    plt.title('Problem '+str(i+1)+' Solution - Profit')
+    plt.xlabel("Generation")
+    plt.ylabel("Profit")
+    plt.ticklabel_format(style='plain')
+    plt.savefig('Problem_'+str(i+1)+'_Profit.png')
+
+    plt.figure()
+    plt.plot(pso.stepWeightInKg)
+    plt.axhline(y=capacityKg, color='r')
+    plt.title('Problem '+str(i+1)+' Solution - Weight')
+    plt.xlabel("Iteration")
+    plt.ylabel("Weight")
+    plt.ticklabel_format(style='plain')
+    plt.savefig('Problem_'+str(i+1)+'_Weight.png')
+    
+    print("Overall best candidate: {},with score of: {}".format(bestProfit,best_solution))    
+
